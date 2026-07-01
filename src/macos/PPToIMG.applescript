@@ -1,7 +1,7 @@
--- PPToIMG v1.4.1
+-- PPToIMG v1.4.2
 -- Glissez un fichier .pptx ou .pdf sur l'icône pour extraire les images
 
-property current_version : "1.4.1"
+property current_version : "1.4.2"
 property github_repo : "luxmodernis/PPToIMG"
 
 -- Récupère la dernière version publiée sur GitHub ("" si échec réseau)

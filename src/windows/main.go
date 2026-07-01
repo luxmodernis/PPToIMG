@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const VERSION = "1.4.1"
+const VERSION = "1.4.2"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
@@ -29,7 +29,10 @@ func main() {
 
 	if len(args) == 0 {
 		// Double-clic sans fichier : équivalent du clic Dock sur Mac -> toujours afficher le statut
-		showStatusAndMaybeUpdate()
+		if showStatusAndMaybeUpdate() {
+			// Une mise à jour a été lancée : ne pas poursuivre avec l'ancienne version.
+			return
+		}
 
 		// Puis on enchaîne sur le sélecteur de fichier (l'action principale sur PC)
 		file := openFilePicker()
@@ -67,7 +70,9 @@ func processFile(filePath string) {
 
 // ── Statut / mise à jour (clic simple sans fichier) ────────────────────────
 
-func showStatusAndMaybeUpdate() {
+// showStatusAndMaybeUpdate renvoie true si l'utilisateur a lancé un téléchargement
+// de mise à jour (l'appelant doit alors arrêter, pour ne pas relancer l'ancienne version).
+func showStatusAndMaybeUpdate() bool {
 	latest, downloadURL := fetchLatestRelease()
 
 	if latest == "" {
@@ -75,17 +80,18 @@ func showStatusAndMaybeUpdate() {
 			fmt.Sprintf("PPToIMG — version %s\n\nImpossible de vérifier les mises à jour (pas de connexion internet ?).", VERSION),
 			"PPToIMG",
 		)
-		return
+		return false
 	}
 
 	if semverGreater(latest, VERSION) {
-		showUpdateDialog(latest, downloadURL)
-	} else {
-		showDialog(
-			fmt.Sprintf("PPToIMG — version %s\n\nVous utilisez la dernière version. ✓\n\nSélectionnez un fichier .pptx ou .pdf dans la fenêtre suivante pour en extraire les images.", VERSION),
-			"PPToIMG",
-		)
+		return showUpdateDialog(latest, downloadURL)
 	}
+
+	showDialog(
+		fmt.Sprintf("PPToIMG — version %s\n\nVous utilisez la dernière version. ✓\n\nSélectionnez un fichier .pptx ou .pdf dans la fenêtre suivante pour en extraire les images.", VERSION),
+		"PPToIMG",
+	)
+	return false
 }
 
 // ── Extraction PPTX ────────────────────────────────────────────────────────
@@ -238,7 +244,10 @@ func semverGreater(a, b string) bool {
 	return false
 }
 
-func showUpdateDialog(version, downloadURL string) {
+// showUpdateDialog affiche la fenêtre de mise à jour (toujours au premier plan).
+// Renvoie true si l'utilisateur a cliqué "Télécharger" (que le téléchargement
+// aboutisse, échoue ou soit annulé au choix du dossier).
+func showUpdateDialog(version, downloadURL string) bool {
 	msg := fmt.Sprintf(
 		"Une nouvelle version est disponible : v%s\n"+
 			"Votre version actuelle : v%s\n\n"+
@@ -265,6 +274,7 @@ $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
+$form.TopMost = $true
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 
 $label = New-Object System.Windows.Forms.Label
@@ -288,6 +298,7 @@ $form.Controls.Add($btnDownload)
 $form.CancelButton = $btnLater
 $form.AcceptButton = $btnDownload
 
+$form.Add_Shown({ $form.Activate() })
 $result = $form.ShowDialog()
 Write-Output $result
 `, msgEscaped)
@@ -295,28 +306,18 @@ Write-Output $result
 
 	if strings.Contains(result, "OK") {
 		downloadUpdate(downloadURL, version)
+		return true
 	}
-}
-
-// chooseFolder affiche un sélecteur de dossier Windows natif.
-// Renvoie "" si l'utilisateur annule.
-func chooseFolder() string {
-	script := `
-Add-Type -AssemblyName System.Windows.Forms
-$dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-$dlg.Description = 'Choisissez ou enregistrer la nouvelle version de PPToIMG'
-$dlg.ShowNewFolderButton = $true
-if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dlg.SelectedPath }
-`
-	result, _ := runPS(script)
-	return result
+	return false
 }
 
 // downloadUpdate laisse l'utilisateur choisir où enregistrer le nouvel exécutable
-// (nommé avec son numéro de version pour le distinguer facilement), le télécharge,
-// puis ouvre l'Explorateur avec le fichier en surbrillance. Impossible de remplacer
-// l'exécutable en cours d'exécution : l'utilisateur doit fermer l'app et le faire
-// lui-même, mais il n'a plus besoin de chercher le fichier sur le site GitHub.
+// (nommé avec son numéro de version), affiche une barre de progression pendant le
+// téléchargement, puis ouvre l'Explorateur avec le fichier en surbrillance. Le tout
+// se fait dans un seul processus PowerShell (dialogs + téléchargement + barre de
+// progression) pour garder toutes les fenêtres au premier plan de façon cohérente.
+// Impossible de remplacer l'exécutable en cours d'exécution : l'utilisateur doit
+// fermer l'app et le faire lui-même.
 func downloadUpdate(downloadURL, version string) {
 	fallbackToBrowser := func() {
 		runPS(fmt.Sprintf("Start-Process 'https://github.com/%s/releases/latest'", GITHUB_REPO))
@@ -327,41 +328,99 @@ func downloadUpdate(downloadURL, version string) {
 		return
 	}
 
-	destDir := chooseFolder()
-	if destDir == "" {
-		// Annulé par l'utilisateur, pas d'erreur à afficher.
-		return
-	}
+	fileName := fmt.Sprintf("PPToIMG-v%s.exe", version)
 
-	destPath := filepath.Join(destDir, fmt.Sprintf("PPToIMG-v%s.exe", version))
+	script := fmt.Sprintf(`
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Get(downloadURL)
-	if err != nil {
-		showDialog("Le téléchargement automatique a échoué.\n\nOuverture de la page GitHub pour télécharger manuellement.", "PPToIMG")
+$owner = New-Object System.Windows.Forms.Form
+$owner.ShowInTaskbar = $false
+$owner.WindowState = 'Minimized'
+$owner.TopMost = $true
+$owner.Load.Add({ $owner.Opacity = 0 })
+$owner.Show()
+
+$dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+$dlg.Description = 'Choisissez ou enregistrer la nouvelle version de PPToIMG'
+$dlg.ShowNewFolderButton = $true
+$res = $dlg.ShowDialog($owner)
+if ($res -ne [System.Windows.Forms.DialogResult]::OK) {
+    Write-Output 'CANCELLED'
+    exit
+}
+$destPath = Join-Path $dlg.SelectedPath '%s'
+
+$progForm = New-Object System.Windows.Forms.Form
+$progForm.Text = 'PPToIMG'
+$progForm.Size = New-Object System.Drawing.Size(380, 110)
+$progForm.StartPosition = 'CenterScreen'
+$progForm.FormBorderStyle = 'FixedDialog'
+$progForm.MaximizeBox = $false
+$progForm.MinimizeBox = $false
+$progForm.ControlBox = $false
+$progForm.TopMost = $true
+
+$lbl = New-Object System.Windows.Forms.Label
+$lbl.Text = 'Telechargement en cours...'
+$lbl.SetBounds(20, 15, 340, 20)
+$progForm.Controls.Add($lbl)
+
+$bar = New-Object System.Windows.Forms.ProgressBar
+$bar.SetBounds(20, 45, 320, 22)
+$bar.Style = 'Marquee'
+$bar.MarqueeAnimationSpeed = 30
+$progForm.Controls.Add($bar)
+
+$worker = New-Object System.ComponentModel.BackgroundWorker
+$worker.add_DoWork({
+    param($s, $e)
+    $wc = New-Object System.Net.WebClient
+    $wc.Headers.Add('User-Agent', 'PPToIMG-Updater')
+    $wc.DownloadFile('%s', $e.Argument)
+})
+
+$script:downloadErr = $null
+$worker.add_RunWorkerCompleted({
+    param($s, $e)
+    if ($e.Error) { $script:downloadErr = $e.Error.Message }
+    $progForm.Close()
+})
+
+$progForm.Add_Shown({
+    $progForm.Activate()
+    $worker.RunWorkerAsync($destPath)
+})
+
+[System.Windows.Forms.Application]::Run($progForm)
+
+if ($script:downloadErr) {
+    Write-Output ('FAILED:' + $script:downloadErr)
+    exit
+}
+
+if (-not (Test-Path $destPath)) {
+    Write-Output 'FAILED:fichier introuvable apres telechargement'
+    exit
+}
+
+Start-Process explorer.exe ('/select,' + $destPath)
+
+$msg = "Telechargement termine !" + [Environment]::NewLine + [Environment]::NewLine + $destPath + [Environment]::NewLine + [Environment]::NewLine + "Fermez PPToIMG, puis remplacez l'ancien fichier par celui-ci."
+[System.Windows.Forms.MessageBox]::Show($owner, $msg, 'PPToIMG - Mise a jour prete', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+
+Write-Output $destPath
+`, fileName, downloadURL)
+
+	result, _ := runPS(script)
+
+	switch {
+	case result == "" || result == "CANCELLED":
+		// Annulé par l'utilisateur, rien à afficher.
+	case strings.HasPrefix(result, "FAILED"):
+		showDialog("Le téléchargement automatique a échoué :\n\n"+strings.TrimPrefix(result, "FAILED:")+"\n\nOuverture de la page GitHub pour télécharger manuellement.", "PPToIMG")
 		fallbackToBrowser()
-		return
 	}
-	defer resp.Body.Close()
-
-	out, err := os.Create(destPath)
-	if err != nil {
-		showDialog("Impossible d'écrire le fichier téléchargé :\n"+err.Error(), "PPToIMG - Erreur")
-		return
-	}
-	_, copyErr := io.Copy(out, resp.Body)
-	out.Close()
-	if copyErr != nil {
-		os.Remove(destPath)
-		showDialog("Le téléchargement a été interrompu :\n"+copyErr.Error(), "PPToIMG - Erreur")
-		return
-	}
-
-	exec.Command("explorer.exe", "/select,"+destPath).Start()
-	showDialog(
-		fmt.Sprintf("Téléchargement terminé !\n\n%s\n\nFermez PPToIMG, puis remplacez l'ancien fichier par celui-ci.", destPath),
-		"PPToIMG - Mise à jour prête",
-	)
 }
 
 // ── Menu clic droit "Extraire avec PPToIMG" ────────────────────────────────
@@ -461,10 +520,16 @@ func runPS(script string) (string, error) {
 func openFilePicker() string {
 	script := `
 Add-Type -AssemblyName System.Windows.Forms
+$owner = New-Object System.Windows.Forms.Form
+$owner.ShowInTaskbar = $false
+$owner.WindowState = 'Minimized'
+$owner.TopMost = $true
+$owner.Load.Add({ $owner.Opacity = 0 })
+$owner.Show()
 $d = New-Object System.Windows.Forms.OpenFileDialog
 $d.Title = 'Selectionner un fichier'
 $d.Filter = 'Fichiers pris en charge (*.pptx, *.pdf)|*.pptx;*.pdf|PowerPoint (*.pptx)|*.pptx|PDF (*.pdf)|*.pdf|Tous les fichiers (*.*)|*.*'
-if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }
+if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }
 `
 	result, _ := runPS(script)
 	return result
@@ -475,7 +540,13 @@ func showDialog(message, title string) {
 	ttl := strings.ReplaceAll(title, "'", "''")
 	script := fmt.Sprintf(`
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.MessageBox]::Show('%s', '%s', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+$owner = New-Object System.Windows.Forms.Form
+$owner.ShowInTaskbar = $false
+$owner.WindowState = 'Minimized'
+$owner.TopMost = $true
+$owner.Load.Add({ $owner.Opacity = 0 })
+$owner.Show()
+[System.Windows.Forms.MessageBox]::Show($owner, '%s', '%s', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
 `, msg, ttl)
 	runPS(script)
 }
