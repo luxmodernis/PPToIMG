@@ -86,6 +86,12 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
   - PowerPoint n'a pas besoin d'être installé sur le Mac.
   - Fonctionne avec les fichiers .pptx (PowerPoint 2007+) et .pdf.
   - L'app vérifie automatiquement les mises à jour au lancement.
+    En cas de nouvelle version, cliquer sur "Télécharger" lance
+    le téléchargement et la préparation automatiquement (aucun
+    avertissement de sécurité à ce stade, contrairement à un
+    téléchargement via navigateur). Le Finder affiche ensuite
+    la nouvelle application, prête à remplacer l'ancienne —
+    il suffit de fermer PPToIMG puis de faire l'échange.
 
 
 ──────────────────────────────────────────────────────────

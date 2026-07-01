@@ -1,7 +1,7 @@
--- PPToIMG v1.3.0
+-- PPToIMG v1.3.1
 -- Glissez un fichier .pptx ou .pdf sur l'icône pour extraire les images
 
-property current_version : "1.3.0"
+property current_version : "1.3.1"
 property github_repo : "luxmodernis/PPToIMG"
 
 -- Récupère la dernière version publiée sur GitHub ("" si échec réseau)
@@ -32,18 +32,44 @@ end is_newer_version
 
 -- Affiche la fenêtre de mise à jour avec tutoriel
 on show_update_dialog(latest_tag)
-	-- Copie la commande de déblocage dans le presse-papiers dès l'affichage,
-	-- pour que l'utilisateur n'ait jamais besoin de la retaper de mémoire.
-	set unlock_cmd to "xattr -cr ~/Downloads/PPToIMG.app"
-	try
-		set the clipboard to unlock_cmd
-	end try
-
-	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\"" & return & "2. Téléchargez PPToIMG.app (ou .zip) depuis la page GitHub" & return & "3. Remplacez l'ancienne application par la nouvelle" & return & "4. Si un avertissement de sécurité apparaît (\"non ouvert\") :" & return & "   • Ouvrez Terminal (Cmd+Espace → tapez \"Terminal\")" & return & "   • Collez avec Cmd+V (la commande est déjà copiée" & return & "     dans votre presse-papiers) puis appuyez sur Entrée" & return & "   • Relancez PPToIMG normalement" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
+	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\" — le téléchargement et la" & return & "    préparation se font automatiquement" & return & "2. Le Finder affichera la nouvelle application, prête à l'emploi" & return & "3. Fermez PPToIMG, puis remplacez l'ancienne application" & return & "    par la nouvelle" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
 	if btn is "Télécharger" then
-		do shell script "open 'https://github.com/" & github_repo & "/releases/latest'"
+		download_and_prepare_update()
 	end if
 end show_update_dialog
+
+-- Télécharge et décompresse la nouvelle version via curl/unzip (ligne de commande),
+-- ce qui évite complètement la quarantaine Gatekeeper posée par les navigateurs :
+-- le nouvel PPToIMG.app s'ouvre alors sans aucun avertissement de sécurité.
+on download_and_prepare_update()
+	try
+		set api_url to "https://api.github.com/repos/" & github_repo & "/releases/latest"
+		set asset_url to do shell script "curl -s --max-time 10 '" & api_url & "' | python3 -c \"import sys,json; d=json.load(sys.stdin); print(next((a['browser_download_url'] for a in d.get('assets',[]) if a['name'].endswith('.zip')), ''))\""
+
+		if asset_url is "" then
+			display dialog "Impossible de récupérer le lien de téléchargement automatique." & return & return & "Ouverture de la page GitHub pour un téléchargement manuel." buttons {"OK"} default button "OK" with icon caution
+			do shell script "open 'https://github.com/" & github_repo & "/releases/latest'"
+			return
+		end if
+
+		set downloads_path to POSIX path of (path to downloads folder)
+		set zip_path to downloads_path & "PPToIMG-macOS.zip"
+		set app_path to downloads_path & "PPToIMG.app"
+
+		do shell script "curl -L -s --max-time 60 -o " & quoted form of zip_path & " " & quoted form of asset_url
+		do shell script "rm -rf " & quoted form of app_path
+		do shell script "unzip -o -q " & quoted form of zip_path & " -d " & quoted form of downloads_path
+		do shell script "rm -f " & quoted form of zip_path
+
+		-- Révèle la nouvelle app dans le Finder, sélectionnée
+		do shell script "open -R " & quoted form of app_path
+
+		display dialog "Téléchargement terminé !" & return & return & app_path & return & return & "Fermez PPToIMG, puis remplacez l'ancienne application par celle-ci (déjà sélectionnée dans le Finder)." buttons {"OK"} default button "OK" with title "PPToIMG — Mise à jour prête"
+	on error err_msg
+		display dialog "Le téléchargement automatique a échoué :" & return & return & err_msg & return & return & "Ouverture de la page GitHub pour un téléchargement manuel." buttons {"OK"} default button "OK" with icon caution
+		do shell script "open 'https://github.com/" & github_repo & "/releases/latest'"
+	end try
+end download_and_prepare_update
 
 -- Traitement d'un fichier (extraction silencieuse, pas de dialog de version ici)
 on process_file(file_path)
