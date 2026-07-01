@@ -1,7 +1,7 @@
--- PPToIMG v1.1.2
+-- PPToIMG v1.2.0
 -- Glissez un fichier .pptx ou .pdf sur l'icône pour extraire les images
 
-property current_version : "1.1.2"
+property current_version : "1.2.0"
 property github_repo : "luxmodernis/PPToIMG"
 
 -- Récupère la dernière version publiée sur GitHub ("" si échec réseau)
@@ -32,7 +32,14 @@ end is_newer_version
 
 -- Affiche la fenêtre de mise à jour avec tutoriel
 on show_update_dialog(latest_tag)
-	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\"" & return & "2. Téléchargez PPToIMG.app (ou .zip) depuis la page GitHub" & return & "3. Remplacez l'ancienne application par la nouvelle" & return & "4. Si un avertissement de sécurité apparaît (\"non ouvert\"), ouvrez Terminal et tapez :" & return & "   xattr -cr ~/Downloads/PPToIMG.app" & return & "   (adaptez le chemin si l'app est ailleurs), puis relancez-la" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
+	-- Copie la commande de déblocage dans le presse-papiers dès l'affichage,
+	-- pour que l'utilisateur n'ait jamais besoin de la retaper de mémoire.
+	set unlock_cmd to "xattr -cr ~/Downloads/PPToIMG.app"
+	try
+		set the clipboard to unlock_cmd
+	end try
+
+	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\"" & return & "2. Téléchargez PPToIMG.app (ou .zip) depuis la page GitHub" & return & "3. Remplacez l'ancienne application par la nouvelle" & return & "4. Si un avertissement de sécurité apparaît (\"non ouvert\") :" & return & "   • Ouvrez Terminal (Cmd+Espace → tapez \"Terminal\")" & return & "   • Collez avec Cmd+V (la commande est déjà copiée" & return & "     dans votre presse-papiers) puis appuyez sur Entrée" & return & "   • Relancez PPToIMG normalement" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
 	if btn is "Télécharger" then
 		do shell script "open 'https://github.com/" & github_repo & "/releases/latest'"
 	end if

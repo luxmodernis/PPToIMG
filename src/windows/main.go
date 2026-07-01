@@ -14,12 +14,17 @@ import (
 	"time"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"golang.org/x/sys/windows/registry"
 )
 
-const VERSION = "1.1.2"
+const VERSION = "1.2.0"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
+	// Auto-enregistrement (idempotent) dans le menu clic droit de l'Explorateur.
+	// Ne nécessite pas de droits admin (clé HKEY_CURRENT_USER).
+	registerContextMenu()
+
 	args := os.Args[1:]
 
 	if len(args) == 0 {
@@ -235,6 +240,38 @@ $r = [System.Windows.Forms.MessageBox]::Show('%s', 'PPToIMG - Mise a jour dispon
 if ($r -eq 'Yes') { Start-Process 'https://github.com/%s/releases/latest' }
 `, strings.ReplaceAll(msg, "'", "''"), GITHUB_REPO)
 	runPS(script)
+}
+
+// ── Menu clic droit "Extraire avec PPToIMG" ────────────────────────────────
+
+func registerContextMenu() {
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+	exePath, err = filepath.Abs(exePath)
+	if err != nil {
+		return
+	}
+
+	for _, ext := range []string{".pptx", ".pdf"} {
+		keyPath := `Software\Classes\SystemFileAssociations\` + ext + `\shell\PPToIMG`
+
+		k, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath, registry.SET_VALUE)
+		if err != nil {
+			continue
+		}
+		k.SetStringValue("", "Extraire avec PPToIMG")
+		k.SetStringValue("Icon", exePath+",0")
+		k.Close()
+
+		ck, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath+`\command`, registry.SET_VALUE)
+		if err != nil {
+			continue
+		}
+		ck.SetStringValue("", `"`+exePath+`" "%1"`)
+		ck.Close()
+	}
 }
 
 // ── Utilitaires Windows ────────────────────────────────────────────────────
