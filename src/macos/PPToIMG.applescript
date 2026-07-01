@@ -1,7 +1,7 @@
--- PPToIMG v1.1.1
+-- PPToIMG v1.1.2
 -- Glissez un fichier .pptx ou .pdf sur l'icône pour extraire les images
 
-property current_version : "1.1.1"
+property current_version : "1.1.2"
 property github_repo : "luxmodernis/PPToIMG"
 
 -- Récupère la dernière version publiée sur GitHub ("" si échec réseau)
@@ -32,7 +32,7 @@ end is_newer_version
 
 -- Affiche la fenêtre de mise à jour avec tutoriel
 on show_update_dialog(latest_tag)
-	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\"" & return & "2. Téléchargez PPToIMG.app (ou .zip) depuis la page GitHub" & return & "3. Remplacez l'ancienne application par la nouvelle" & return & "4. Si un avertissement de sécurité apparaît : clic droit sur l'app → Ouvrir → Ouvrir" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
+	set btn to button returned of (display dialog "Une nouvelle version est disponible : v" & latest_tag & return & "Votre version actuelle : v" & current_version & return & return & "Comment mettre à jour :" & return & "1. Cliquez sur \"Télécharger\"" & return & "2. Téléchargez PPToIMG.app (ou .zip) depuis la page GitHub" & return & "3. Remplacez l'ancienne application par la nouvelle" & return & "4. Si un avertissement de sécurité apparaît (\"non ouvert\"), ouvrez Terminal et tapez :" & return & "   xattr -cr ~/Downloads/PPToIMG.app" & return & "   (adaptez le chemin si l'app est ailleurs), puis relancez-la" buttons {"Plus tard", "Télécharger"} default button "Télécharger" with title "PPToIMG — Mise à jour disponible")
 	if btn is "Télécharger" then
 		do shell script "open 'https://github.com/" & github_repo & "/releases/latest'"
 	end if

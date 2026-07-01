@@ -16,7 +16,7 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
-const VERSION = "1.1.0"
+const VERSION = "1.1.2"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
