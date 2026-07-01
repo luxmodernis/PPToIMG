@@ -5,6 +5,10 @@
 Extrait toutes les images d'un fichier PowerPoint (.pptx)
 ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
 
+Le nom de l'application (PPToIMG-vX.Y.Z.app) contient toujours
+son numéro de version, pour vérifier d'un coup d'œil que vous
+avez la dernière copie.
+
 
 ── PREMIÈRE OUVERTURE (obligatoire une seule fois) ────────
 
@@ -18,7 +22,7 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
   l'éviter ou de le lever :
 
   ▸ MÉTHODE A — Éviter le blocage dès le départ
-    Récupérez PPToIMG.app par copie de fichier plutôt que
+    Récupérez PPToIMG-vX.Y.Z.app par copie de fichier plutôt que
     par téléchargement navigateur : disque réseau partagé,
     clé USB, ou dossier synchronisé par un client Dropbox /
     Google Drive / OneDrive installé sur le Mac (pas via
@@ -31,19 +35,19 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
   ▸ MÉTHODE B — Si l'avertissement apparaît quand même
     1. Ouvrez l'app Terminal (Spotlight → tapez "Terminal")
     2. Tapez la commande suivante puis Entrée
-       (adaptez le chemin si PPToIMG.app n'est pas dans
+       (adaptez le chemin si PPToIMG-vX.Y.Z.app n'est pas dans
        le dossier Téléchargements) :
 
-         xattr -cr ~/Downloads/PPToIMG.app
+         xattr -cr ~/Downloads/PPToIMG-vX.Y.Z.app
 
-    3. Relancez PPToIMG.app normalement — l'avertissement
+    3. Relancez PPToIMG-vX.Y.Z.app normalement — l'avertissement
        ne réapparaîtra plus.
 
 
 ── UTILISATION ────────────────────────────────────────────
 
   1. Glissez un fichier .pptx ou .pdf directement sur l'icône
-     de PPToIMG.app (dans le Finder ou le Dock)
+     de PPToIMG-vX.Y.Z.app (dans le Finder ou le Dock)
   2. Le dossier "NomDuFichier-images" apparaît sur votre
      Bureau et s'ouvre automatiquement dans le Finder
 
@@ -70,7 +74,7 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
 
   Pour un accès encore plus rapide :
 
-  1. Glissez PPToIMG.app dans votre Dock
+  1. Glissez PPToIMG-vX.Y.Z.app dans votre Dock
   2. Depuis n'importe où sur votre Mac, glissez un fichier
      .pptx sur l'icône PPToIMG dans le Dock
   3. Relâchez — c'est fait !
@@ -86,12 +90,14 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
   - PowerPoint n'a pas besoin d'être installé sur le Mac.
   - Fonctionne avec les fichiers .pptx (PowerPoint 2007+) et .pdf.
   - L'app vérifie automatiquement les mises à jour au lancement.
-    En cas de nouvelle version, cliquer sur "Télécharger" lance
-    le téléchargement et la préparation automatiquement (aucun
-    avertissement de sécurité à ce stade, contrairement à un
-    téléchargement via navigateur). Le Finder affiche ensuite
-    la nouvelle application, prête à remplacer l'ancienne —
-    il suffit de fermer PPToIMG puis de faire l'échange.
+    En cas de nouvelle version, cliquer sur "Télécharger"
+    demande où enregistrer la nouvelle application (nommée
+    avec son numéro de version), la télécharge et la prépare
+    automatiquement (aucun avertissement de sécurité à ce
+    stade, contrairement à un téléchargement via navigateur).
+    Le Finder affiche ensuite la nouvelle application, prête
+    à remplacer l'ancienne — il suffit de fermer PPToIMG puis
+    de faire l'échange.
 
 
 ──────────────────────────────────────────────────────────

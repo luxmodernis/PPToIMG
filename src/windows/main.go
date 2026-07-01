@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const VERSION = "1.3.1"
+const VERSION = "1.4.0"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
@@ -243,10 +243,12 @@ func showUpdateDialog(version, downloadURL string) {
 		"Une nouvelle version est disponible : v%s\n"+
 			"Votre version actuelle : v%s\n\n"+
 			"Comment mettre à jour :\n"+
-			"1. Cliquez sur \"Télécharger\" — le téléchargement démarre automatiquement\n"+
-			"2. Le dossier Téléchargements s'ouvrira avec le nouveau fichier prêt\n"+
-			"3. Fermez PPToIMG, puis remplacez l'ancien fichier .exe par le nouveau\n"+
-			"4. Si Windows affiche un avertissement, cliquez sur\n"+
+			"1. Cliquez sur \"Télécharger\"\n"+
+			"2. Choisissez où enregistrer la nouvelle version\n"+
+			"3. Le dossier choisi s'ouvrira avec le nouveau fichier prêt\n"+
+			"   (nommé avec son numéro de version pour le reconnaître)\n"+
+			"4. Fermez PPToIMG, puis remplacez l'ancien fichier .exe par le nouveau\n"+
+			"5. Si Windows affiche un avertissement, cliquez sur\n"+
 			"    \"Informations complémentaires\" puis \"Exécuter quand même\"",
 		version, VERSION,
 	)
@@ -258,7 +260,7 @@ Add-Type -AssemblyName System.Drawing
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'PPToIMG - Mise a jour disponible'
-$form.Size = New-Object System.Drawing.Size(460, 300)
+$form.Size = New-Object System.Drawing.Size(460, 330)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
@@ -267,17 +269,17 @@ $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 
 $label = New-Object System.Windows.Forms.Label
 $label.Text = '%s'
-$label.SetBounds(20, 20, 410, 190)
+$label.SetBounds(20, 20, 410, 220)
 $label.AutoSize = $false
 
 $btnLater = New-Object System.Windows.Forms.Button
 $btnLater.Text = 'Plus tard'
-$btnLater.SetBounds(210, 220, 100, 32)
+$btnLater.SetBounds(210, 250, 100, 32)
 $btnLater.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
 
 $btnDownload = New-Object System.Windows.Forms.Button
 $btnDownload.Text = 'Telecharger'
-$btnDownload.SetBounds(320, 220, 110, 32)
+$btnDownload.SetBounds(320, 250, 110, 32)
 $btnDownload.DialogResult = [System.Windows.Forms.DialogResult]::OK
 
 $form.Controls.Add($label)
@@ -292,15 +294,30 @@ Write-Output $result
 	result, _ := runPS(script)
 
 	if strings.Contains(result, "OK") {
-		downloadUpdate(downloadURL)
+		downloadUpdate(downloadURL, version)
 	}
 }
 
-// downloadUpdate télécharge le nouvel exécutable dans le dossier Téléchargements
-// et ouvre l'Explorateur avec le fichier en surbrillance. Impossible de remplacer
+// chooseFolder affiche un sélecteur de dossier Windows natif.
+// Renvoie "" si l'utilisateur annule.
+func chooseFolder() string {
+	script := `
+Add-Type -AssemblyName System.Windows.Forms
+$dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+$dlg.Description = 'Choisissez ou enregistrer la nouvelle version de PPToIMG'
+$dlg.ShowNewFolderButton = $true
+if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dlg.SelectedPath }
+`
+	result, _ := runPS(script)
+	return result
+}
+
+// downloadUpdate laisse l'utilisateur choisir où enregistrer le nouvel exécutable
+// (nommé avec son numéro de version pour le distinguer facilement), le télécharge,
+// puis ouvre l'Explorateur avec le fichier en surbrillance. Impossible de remplacer
 // l'exécutable en cours d'exécution : l'utilisateur doit fermer l'app et le faire
 // lui-même, mais il n'a plus besoin de chercher le fichier sur le site GitHub.
-func downloadUpdate(downloadURL string) {
+func downloadUpdate(downloadURL, version string) {
 	fallbackToBrowser := func() {
 		runPS(fmt.Sprintf("Start-Process 'https://github.com/%s/releases/latest'", GITHUB_REPO))
 	}
@@ -310,14 +327,13 @@ func downloadUpdate(downloadURL string) {
 		return
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fallbackToBrowser()
+	destDir := chooseFolder()
+	if destDir == "" {
+		// Annulé par l'utilisateur, pas d'erreur à afficher.
 		return
 	}
-	downloadsDir := filepath.Join(home, "Downloads")
-	os.MkdirAll(downloadsDir, 0755)
-	destPath := filepath.Join(downloadsDir, "PPToIMG.exe")
+
+	destPath := filepath.Join(destDir, fmt.Sprintf("PPToIMG-v%s.exe", version))
 
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Get(downloadURL)
