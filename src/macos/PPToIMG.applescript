@@ -1,7 +1,7 @@
--- PPToIMG v1.1.0
+-- PPToIMG v1.1.1
 -- Glissez un fichier .pptx ou .pdf sur l'icône pour extraire les images
 
-property current_version : "1.1.0"
+property current_version : "1.1.1"
 property github_repo : "luxmodernis/PPToIMG"
 
 -- Récupère la dernière version publiée sur GitHub ("" si échec réseau)
@@ -99,26 +99,26 @@ except Exception as e:
 "
 		try
 			do shell script "mkdir -p " & quoted form of output_folder
-			set result to do shell script "python3 -c " & quoted form of python_script & " " & quoted form of output_folder & " " & quoted form of file_path
+			set extraction_result to do shell script "python3 -c " & quoted form of python_script & " " & quoted form of output_folder & " " & quoted form of file_path
 
-			if result is "NO_PYPDF" then
+			if extraction_result is "NO_PYPDF" then
 				set install_btn to button returned of (display dialog "L'extraction de PDF nécessite la bibliothèque pypdf." & return & return & "Installer automatiquement ?" buttons {"Annuler", "Installer pypdf"} default button "Installer pypdf" with title "PPToIMG — Dépendance manquante")
 				if install_btn is "Installer pypdf" then
 					do shell script "python3 -m pip install pypdf --quiet"
-					set result to do shell script "python3 -c " & quoted form of python_script & " " & quoted form of output_folder & " " & quoted form of file_path
+					set extraction_result to do shell script "python3 -c " & quoted form of python_script & " " & quoted form of output_folder & " " & quoted form of file_path
 				else
 					do shell script "rm -rf " & quoted form of output_folder
 					return
 				end if
 			end if
 
-			if result starts with "ERROR:" then
+			if extraction_result starts with "ERROR:" then
 				do shell script "rm -rf " & quoted form of output_folder
-				display dialog "Erreur lors de l'extraction du PDF :" & return & return & (text 7 thru -1 of result) buttons {"OK"} default button "OK" with icon stop
+				display dialog "Erreur lors de l'extraction du PDF :" & return & return & (text 7 thru -1 of extraction_result) buttons {"OK"} default button "OK" with icon stop
 				return
 			end if
 
-			set file_count to result as integer
+			set file_count to extraction_result as integer
 			if file_count is 0 then
 				do shell script "rm -rf " & quoted form of output_folder
 				display dialog "Aucune image embarquée trouvée dans ce PDF." & return & return & "Le fichier ne contient peut-être que des graphiques vectoriels." buttons {"OK"} default button "OK" with icon caution
