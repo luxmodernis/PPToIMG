@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const VERSION = "1.2.0"
+const VERSION = "1.2.1"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
@@ -225,20 +225,57 @@ func semverGreater(a, b string) bool {
 
 func showUpdateDialog(version string) {
 	msg := fmt.Sprintf(
-		"Une nouvelle version est disponible : v%s\\n"+
-			"Votre version actuelle : v%s\\n\\n"+
-			"Comment mettre a jour :\\n"+
-			"1. Cliquez sur \\\"Telecharger\\\"\\n"+
-			"2. Telechargez le nouveau PPToIMG.exe depuis la page GitHub\\n"+
-			"3. Remplacez l'ancien fichier .exe par le nouveau\\n"+
-			"4. Si Windows affiche un avertissement, cliquez sur \\\"Informations complementaires\\\" puis \\\"Executer quand meme\\\"",
+		"Une nouvelle version est disponible : v%s\n"+
+			"Votre version actuelle : v%s\n\n"+
+			"Comment mettre à jour :\n"+
+			"1. Cliquez sur \"Télécharger\"\n"+
+			"2. Téléchargez le nouveau PPToIMG.exe depuis la page GitHub\n"+
+			"3. Remplacez l'ancien fichier .exe par le nouveau\n"+
+			"4. Si Windows affiche un avertissement, cliquez sur\n"+
+			"    \"Informations complémentaires\" puis \"Exécuter quand même\"",
 		version, VERSION,
 	)
+	msgEscaped := strings.ReplaceAll(msg, "'", "''")
+
 	script := fmt.Sprintf(`
 Add-Type -AssemblyName System.Windows.Forms
-$r = [System.Windows.Forms.MessageBox]::Show('%s', 'PPToIMG - Mise a jour disponible', [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Information)
-if ($r -eq 'Yes') { Start-Process 'https://github.com/%s/releases/latest' }
-`, strings.ReplaceAll(msg, "'", "''"), GITHUB_REPO)
+Add-Type -AssemblyName System.Drawing
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = 'PPToIMG - Mise a jour disponible'
+$form.Size = New-Object System.Drawing.Size(460, 300)
+$form.StartPosition = 'CenterScreen'
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+
+$label = New-Object System.Windows.Forms.Label
+$label.Text = '%s'
+$label.SetBounds(20, 20, 410, 190)
+$label.AutoSize = $false
+
+$btnLater = New-Object System.Windows.Forms.Button
+$btnLater.Text = 'Plus tard'
+$btnLater.SetBounds(210, 220, 100, 32)
+$btnLater.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+
+$btnDownload = New-Object System.Windows.Forms.Button
+$btnDownload.Text = 'Telecharger'
+$btnDownload.SetBounds(320, 220, 110, 32)
+$btnDownload.DialogResult = [System.Windows.Forms.DialogResult]::OK
+
+$form.Controls.Add($label)
+$form.Controls.Add($btnLater)
+$form.Controls.Add($btnDownload)
+$form.CancelButton = $btnLater
+$form.AcceptButton = $btnDownload
+
+$result = $form.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+    Start-Process 'https://github.com/%s/releases/latest'
+}
+`, msgEscaped, GITHUB_REPO)
 	runPS(script)
 }
 
