@@ -73,11 +73,20 @@ try:
     import pypdf
     reader = pypdf.PdfReader(pdf_path)
     count = 0
+    seen_names = set()
     for page_num, page in enumerate(reader.pages):
         for img_index, image in enumerate(page.images):
-            name = image.name if image.name else f'image_p{page_num+1}_{img_index}.png'
-            if not os.path.splitext(name)[1]:
-                name += '.png'
+            base = image.name if image.name else f'image_p{page_num+1}_{img_index}'
+            root, ext = os.path.splitext(base)
+            if not ext:
+                ext = '.png'
+            # Prefixe page/index pour garantir un nom unique par fichier extrait
+            name = f'p{page_num+1}_{img_index}_{root}{ext}'
+            counter = 1
+            while name in seen_names:
+                name = f'p{page_num+1}_{img_index}_{root}_{counter}{ext}'
+                counter += 1
+            seen_names.add(name)
             dest = os.path.join(output_dir, name)
             with open(dest, 'wb') as f:
                 f.write(image.data)
