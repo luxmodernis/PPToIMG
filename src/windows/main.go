@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const VERSION = "1.2.1"
+const VERSION = "1.3.0"
 const GITHUB_REPO = "luxmodernis/PPToIMG"
 
 func main() {
@@ -42,9 +42,9 @@ func main() {
 			processFile(strings.TrimSpace(f))
 		}
 		// Mise à jour affichée seulement si une nouvelle version existe
-		latest := fetchLatestVersion()
+		latest, downloadURL := fetchLatestRelease()
 		if semverGreater(latest, VERSION) {
-			showUpdateDialog(latest)
+			showUpdateDialog(latest, downloadURL)
 		}
 	}
 }
@@ -68,7 +68,7 @@ func processFile(filePath string) {
 // ── Statut / mise à jour (clic simple sans fichier) ────────────────────────
 
 func showStatusAndMaybeUpdate() {
-	latest := fetchLatestVersion()
+	latest, downloadURL := fetchLatestRelease()
 
 	if latest == "" {
 		showDialog(
@@ -79,7 +79,7 @@ func showStatusAndMaybeUpdate() {
 	}
 
 	if semverGreater(latest, VERSION) {
-		showUpdateDialog(latest)
+		showUpdateDialog(latest, downloadURL)
 	} else {
 		showDialog(
 			fmt.Sprintf("PPToIMG — version %s\n\nVous utilisez la dernière version. ✓\n\nSélectionnez un fichier .pptx ou .pdf dans la fenêtre suivante pour en extraire les images.", VERSION),
@@ -181,22 +181,37 @@ func extractPDF(filePath string) {
 
 // ── Auto-update ────────────────────────────────────────────────────────────
 
-type githubRelease struct {
-	TagName string `json:"tag_name"`
+type githubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-func fetchLatestVersion() string {
+type githubRelease struct {
+	TagName string        `json:"tag_name"`
+	Assets  []githubAsset `json:"assets"`
+}
+
+// fetchLatestRelease renvoie le numéro de version publié et l'URL directe de
+// l'exécutable Windows attaché à la release ("" si l'un des deux est introuvable).
+func fetchLatestRelease() (version string, downloadURL string) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest")
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	defer resp.Body.Close()
 	var rel githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
-		return ""
+		return "", ""
 	}
-	return strings.TrimPrefix(rel.TagName, "v")
+	version = strings.TrimPrefix(rel.TagName, "v")
+	for _, a := range rel.Assets {
+		if strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+			downloadURL = a.BrowserDownloadURL
+			break
+		}
+	}
+	return version, downloadURL
 }
 
 func semverGreater(a, b string) bool {
@@ -223,14 +238,14 @@ func semverGreater(a, b string) bool {
 	return false
 }
 
-func showUpdateDialog(version string) {
+func showUpdateDialog(version, downloadURL string) {
 	msg := fmt.Sprintf(
 		"Une nouvelle version est disponible : v%s\n"+
 			"Votre version actuelle : v%s\n\n"+
 			"Comment mettre à jour :\n"+
-			"1. Cliquez sur \"Télécharger\"\n"+
-			"2. Téléchargez le nouveau PPToIMG.exe depuis la page GitHub\n"+
-			"3. Remplacez l'ancien fichier .exe par le nouveau\n"+
+			"1. Cliquez sur \"Télécharger\" — le téléchargement démarre automatiquement\n"+
+			"2. Le dossier Téléchargements s'ouvrira avec le nouveau fichier prêt\n"+
+			"3. Fermez PPToIMG, puis remplacez l'ancien fichier .exe par le nouveau\n"+
 			"4. Si Windows affiche un avertissement, cliquez sur\n"+
 			"    \"Informations complémentaires\" puis \"Exécuter quand même\"",
 		version, VERSION,
@@ -272,11 +287,65 @@ $form.CancelButton = $btnLater
 $form.AcceptButton = $btnDownload
 
 $result = $form.ShowDialog()
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    Start-Process 'https://github.com/%s/releases/latest'
+Write-Output $result
+`, msgEscaped)
+	result, _ := runPS(script)
+
+	if strings.Contains(result, "OK") {
+		downloadUpdate(downloadURL)
+	}
 }
-`, msgEscaped, GITHUB_REPO)
-	runPS(script)
+
+// downloadUpdate télécharge le nouvel exécutable dans le dossier Téléchargements
+// et ouvre l'Explorateur avec le fichier en surbrillance. Impossible de remplacer
+// l'exécutable en cours d'exécution : l'utilisateur doit fermer l'app et le faire
+// lui-même, mais il n'a plus besoin de chercher le fichier sur le site GitHub.
+func downloadUpdate(downloadURL string) {
+	fallbackToBrowser := func() {
+		runPS(fmt.Sprintf("Start-Process 'https://github.com/%s/releases/latest'", GITHUB_REPO))
+	}
+
+	if downloadURL == "" {
+		fallbackToBrowser()
+		return
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fallbackToBrowser()
+		return
+	}
+	downloadsDir := filepath.Join(home, "Downloads")
+	os.MkdirAll(downloadsDir, 0755)
+	destPath := filepath.Join(downloadsDir, "PPToIMG.exe")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		showDialog("Le téléchargement automatique a échoué.\n\nOuverture de la page GitHub pour télécharger manuellement.", "PPToIMG")
+		fallbackToBrowser()
+		return
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(destPath)
+	if err != nil {
+		showDialog("Impossible d'écrire le fichier téléchargé :\n"+err.Error(), "PPToIMG - Erreur")
+		return
+	}
+	_, copyErr := io.Copy(out, resp.Body)
+	out.Close()
+	if copyErr != nil {
+		os.Remove(destPath)
+		showDialog("Le téléchargement a été interrompu :\n"+copyErr.Error(), "PPToIMG - Erreur")
+		return
+	}
+
+	exec.Command("explorer.exe", "/select,"+destPath).Start()
+	showDialog(
+		fmt.Sprintf("Téléchargement terminé !\n\n%s\n\nFermez PPToIMG, puis remplacez l'ancien fichier par celui-ci.", destPath),
+		"PPToIMG - Mise à jour prête",
+	)
 }
 
 // ── Menu clic droit "Extraire avec PPToIMG" ────────────────────────────────

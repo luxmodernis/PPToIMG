@@ -57,6 +57,13 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
   - PowerPoint n'a pas besoin d'être installé sur le PC.
   - Fonctionne avec les fichiers .pptx (PowerPoint 2007+) et .pdf.
   - L'app vérifie automatiquement les mises à jour au lancement.
+    En cas de nouvelle version, cliquer sur "Télécharger" lance
+    le téléchargement automatiquement et ouvre le dossier
+    Téléchargements avec le nouveau fichier prêt à l'emploi.
+    Il reste nécessaire de fermer PPToIMG et de remplacer
+    l'ancien fichier .exe manuellement (aucun moyen de
+    remplacer un programme pendant qu'il est en cours
+    d'exécution).
   - Si Windows affiche un avertissement de sécurité au premier
     lancement, cliquez sur "Informations complémentaires"
     puis "Exécuter quand même".
