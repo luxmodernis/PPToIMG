@@ -9,20 +9,35 @@ ou PDF (.pdf) et les dépose dans un dossier sur votre Bureau.
 ── PREMIÈRE OUVERTURE (obligatoire une seule fois) ────────
 
   L'application n'étant pas signée par un compte développeur
-  Apple, macOS affiche un avertissement de sécurité au tout
+  Apple, macOS peut afficher un avertissement de sécurité au
   premier lancement : "PPToIMG non ouvert".
 
-  Pour débloquer l'app (une seule fois) :
+  Cet avertissement n'apparaît QUE si le fichier a été
+  téléchargé via un navigateur (macOS marque alors le
+  fichier comme "provenant d'internet"). Deux façons de
+  l'éviter ou de le lever :
 
-  1. Ouvrez l'app Terminal (Spotlight → tapez "Terminal")
-  2. Tapez la commande suivante puis Entrée
-     (adaptez le chemin si PPToIMG.app n'est pas dans
-     le dossier Téléchargements) :
+  ▸ MÉTHODE A — Éviter le blocage dès le départ
+    Récupérez PPToIMG.app par copie de fichier plutôt que
+    par téléchargement navigateur : disque réseau partagé,
+    clé USB, ou dossier synchronisé par un client Dropbox /
+    Google Drive / OneDrive installé sur le Mac (pas via
+    leur site web). Dans ce cas, aucun avertissement
+    n'apparaît et l'app s'ouvre directement.
 
-       xattr -cr ~/Downloads/PPToIMG.app
+    ⚠️ AirDrop ne fonctionne PAS pour éviter le blocage :
+    macOS marque aussi les fichiers reçus par AirDrop.
 
-  3. Relancez PPToIMG.app normalement — l'avertissement
-     ne réapparaîtra plus.
+  ▸ MÉTHODE B — Si l'avertissement apparaît quand même
+    1. Ouvrez l'app Terminal (Spotlight → tapez "Terminal")
+    2. Tapez la commande suivante puis Entrée
+       (adaptez le chemin si PPToIMG.app n'est pas dans
+       le dossier Téléchargements) :
+
+         xattr -cr ~/Downloads/PPToIMG.app
+
+    3. Relancez PPToIMG.app normalement — l'avertissement
+       ne réapparaîtra plus.
 
 
 ── UTILISATION ────────────────────────────────────────────
